@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:ingridio/logic/route_transitions.dart';
 import 'package:ingridio/logic/saved_recipes_store.dart';
 import 'package:ingridio/models/recipe.dart';
 import 'package:ingridio/models/recipe_cooking_step.dart';
@@ -87,8 +88,22 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   void _openCooking() {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => CookingModeScreen(recipe: _r),
+      PageRouteBuilder<void>(
+        transitionDuration: const Duration(milliseconds: 400),
+        pageBuilder: (BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation) {
+          return CookingModeScreen(recipe: _r);
+        },
+        transitionsBuilder: (BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) {
+          return FadeTransition(
+            opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic),
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic),
+              ),
+              child: child,
+            ),
+          );
+        },
       ),
     );
   }
@@ -238,7 +253,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                               onSurface: _onSurface,
                               surfaceLowest: _surfaceContainerLowest,
                             ),
-                            const SizedBox(height: 18),
+                            const SizedBox(height: 22),
                             _ServingAdjuster(
                               servings: _servings,
                               onChanged: (int v) => setState(() => _servings = v),
@@ -335,7 +350,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                       ),
                     ),
                   ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 140)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 160)),
                 ],
               ),
               Positioned(
@@ -608,11 +623,12 @@ class _IngredientsColumn extends StatelessWidget {
           'Ingredients',
           style: GoogleFonts.plusJakartaSans(
             fontWeight: FontWeight.w800,
-            fontSize: 22,
+            fontSize: 24,
             color: secondary,
+            letterSpacing: -0.4,
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 22),
         if (recipe.ingredientLines != null &&
             recipe.ingredientLines!.isNotEmpty)
           ...recipe.ingredientLines!.map((RecipeIngredientLine line) {
@@ -796,8 +812,9 @@ class _StepsNutritionColumn extends StatelessWidget {
           'Cooking Steps',
           style: GoogleFonts.plusJakartaSans(
             fontWeight: FontWeight.w800,
-            fontSize: 22,
+            fontSize: 24,
             color: secondary,
+            letterSpacing: -0.4,
           ),
         ),
         const SizedBox(height: 22),
@@ -827,7 +844,7 @@ class _StepsNutritionColumn extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 18),
+                const SizedBox(width: 20),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

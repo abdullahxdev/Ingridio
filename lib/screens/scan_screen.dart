@@ -920,7 +920,7 @@ class _BottomControls extends StatelessWidget {
           ),
         ),
         child: Padding(
-          padding: EdgeInsets.fromLTRB(28, 48, 28, navReserve),
+          padding: EdgeInsets.fromLTRB(28, 52, 28, navReserve),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
@@ -929,22 +929,23 @@ class _BottomControls extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: GoogleFonts.plusJakartaSans(
                   color: Colors.white,
-                  fontSize: 22,
+                  fontSize: 24,
                   fontWeight: FontWeight.w800,
                   height: 1.2,
                   letterSpacing: -0.4,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
                 'Center your items within the frame for best recognition.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.beVietnamPro(
-                  color: Colors.white.withValues(alpha: 0.7),
-                  fontSize: 13,
+                  color: Colors.white.withValues(alpha: 0.75),
+                  fontSize: 14,
+                  height: 1.4,
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 40),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
@@ -967,7 +968,7 @@ class _BottomControls extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 28),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -976,12 +977,12 @@ class _BottomControls extends StatelessWidget {
                       label: 'Tomato',
                       onTap: () => onSuggestion('Tomato'),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     _SuggestionChip(
                       label: 'Basil',
                       onTap: () => onSuggestion('Basil'),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     _SuggestionChip(
                       label: 'Bell Pepper',
                       onTap: () => onSuggestion('Bell Pepper'),
@@ -1012,9 +1013,9 @@ class _SideAction extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(18),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
@@ -1022,11 +1023,11 @@ class _SideAction extends StatelessWidget {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                 child: Container(
-                  width: 56,
-                  height: 56,
+                  width: 60,
+                  height: 60,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
+                    color: Colors.white.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                   ),
@@ -1038,9 +1039,9 @@ class _SideAction extends StatelessWidget {
             Text(
               label,
               style: GoogleFonts.beVietnamPro(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: Colors.white.withValues(alpha: 0.8),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.white.withValues(alpha: 0.9),
               ),
             ),
           ],

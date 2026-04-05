@@ -46,8 +46,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _openRecipe(Recipe recipe) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => RecipeDetailScreen(recipe: recipe),
+      PageRouteBuilder<void>(
+        transitionDuration: const Duration(milliseconds: 400),
+        pageBuilder: (BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation) {
+          return RecipeDetailScreen(recipe: recipe);
+        },
+        transitionsBuilder: (BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) {
+          return FadeTransition(
+            opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic),
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic),
+              ),
+              child: child,
+            ),
+          );
+        },
       ),
     );
   }
@@ -691,7 +705,7 @@ class _SmallRecipeCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
@@ -707,7 +721,7 @@ class _SmallRecipeCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Text(
                 recipe.name,
                 style: GoogleFonts.plusJakartaSans(
@@ -715,9 +729,10 @@ class _SmallRecipeCard extends StatelessWidget {
                   fontSize: 17,
                   height: 1.2,
                   color: _onSurface,
+                  letterSpacing: -0.3,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Row(
                 children: <Widget>[
                   Icon(
@@ -725,13 +740,13 @@ class _SmallRecipeCard extends StatelessWidget {
                     size: 16,
                     color: _secondary,
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 6),
                   Text(
                     _timeUpper,
                     style: GoogleFonts.beVietnamPro(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.4,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
                       color: _secondary,
                     ),
                   ),
