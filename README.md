@@ -106,7 +106,4 @@ This repository currently contains the Ingridio Flutter application scaffold and
 - Pantry tracking with expiration-aware suggestions
 - In-app grocery integrations and shopping optimization
 
-## Vision
 
-Ingridio is built to become the operating system for home cooking decisions:
-capture what you have, understand what matters, and cook something genuinely good with minimal friction.
