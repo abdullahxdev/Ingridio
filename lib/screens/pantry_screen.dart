@@ -214,39 +214,14 @@ class _PantryScreenState extends State<PantryScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: _primaryContainer,
-                                  width: 2,
-                                ),
-                              ),
-                              clipBehavior: Clip.antiAlias,
-                              child: Image.network(
-                                MockData.pantryProfileAvatarUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const ColoredBox(
-                                  color: _surfaceContainerHigh,
-                                  child: Icon(Icons.person, color: _secondary),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Ingridio',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.5,
-                                color: _onSurface,
-                              ),
-                            ),
-                          ],
+                        Text(
+                          'Ingridio',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                            color: _onSurface,
+                          ),
                         ),
                         IconButton(
                           onPressed: () {

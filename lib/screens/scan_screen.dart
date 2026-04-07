@@ -4,6 +4,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:ingridio/logic/cv_detector_client.dart';
 import 'package:ingridio/models/scanned_ingredient.dart';
 import 'package:ingridio/screens/scan_result_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -18,7 +19,6 @@ class ScanScreen extends StatefulWidget {
 class _ScanScreenState extends State<ScanScreen>
     with TickerProviderStateMixin {
   static const Color _primaryContainer = Color(0xFFF97316);
-  static const Color _onSurface = Color(0xFF2F1400);
 
   CameraController? _controller;
   bool _initializing = true;
@@ -26,6 +26,7 @@ class _ScanScreenState extends State<ScanScreen>
   bool _noCamera = false;
   bool _isFlashOn = false;
   bool _capturing = false;
+  final CvDetectorClient _cvDetectorClient = CvDetectorClient();
 
   late AnimationController _scanLineController;
   late Animation<double> _scanLineAnimation;
@@ -102,7 +103,7 @@ class _ScanScreenState extends State<ScanScreen>
 
       final CameraController controller = CameraController(
         back,
-        ResolutionPreset.high,
+        ResolutionPreset.medium,
         enableAudio: false,
         imageFormatGroup: ImageFormatGroup.jpeg,
       );
@@ -163,9 +164,11 @@ class _ScanScreenState extends State<ScanScreen>
     if (c == null || !c.value.isInitialized || _capturing) {
       return;
     }
+
+    XFile imageFile;
     setState(() => _capturing = true);
     try {
-      await c.takePicture();
+      imageFile = await c.takePicture();
     } catch (_) {
       if (mounted) {
         setState(() => _capturing = false);
@@ -181,78 +184,85 @@ class _ScanScreenState extends State<ScanScreen>
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black.withValues(alpha: 0.88),
-      builder: (BuildContext ctx) {
-        return PopScope(
-          canPop: false,
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                const SizedBox(
-                  width: 52,
-                  height: 52,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    color: _primaryContainer,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                Text(
-                  'Identifying your ingredients...',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.beVietnamPro(
-                    color: Colors.white.withValues(alpha: 0.92),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+      builder: (BuildContext ctx) => const _DetectionLoadingDialog(),
     );
 
-    await Future<void>.delayed(const Duration(seconds: 2));
+    List<ScannedIngredient> detected = List<ScannedIngredient>.from(
+      _mockCaptureResults,
+    );
+    String? fallbackMessage;
+
+    try {
+      final List<int> bytes = await imageFile.readAsBytes();
+      final List<String> ingredientNames = await _cvDetectorClient
+          .detectIngredientsFromImageBytes(
+            imageBytes: bytes,
+            filename: imageFile.name,
+          );
+      if (ingredientNames.isNotEmpty) {
+        detected = ingredientNames
+            .map(
+              (String name) => ScannedIngredient(
+                name: _toTitleCase(name),
+                confidence: IngredientConfidence.high,
+              ),
+            )
+            .toList(growable: false);
+      } else {
+        fallbackMessage =
+            'No ingredients detected from server. Showing sample results.';
+      }
+    } on Object catch (error) {
+      final String reason = error.toString().replaceFirst('Exception: ', '').trim();
+      fallbackMessage = reason.isNotEmpty
+          ? '$reason Showing sample results.'
+          : 'Could not reach Ingridio CV server. Showing sample results.';
+    }
+
     if (!mounted) {
       return;
     }
     Navigator.of(context).pop();
     setState(() => _capturing = false);
+    if (fallbackMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(fallbackMessage),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ScanResultScreen(
-          initialIngredients: List<ScannedIngredient>.from(_mockCaptureResults),
+          initialIngredients: detected,
         ),
       ),
     );
   }
 
-  void _openSuggestionResult(String name) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$name added!'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ScanResultScreen(
-          initialIngredients: <ScannedIngredient>[
-            ScannedIngredient(
-              name: name,
-              confidence: IngredientConfidence.high,
-            ),
-          ],
-        ),
-      ),
-    );
+  static String _toTitleCase(String input) {
+    final List<String> words = input
+        .split(RegExp(r'\s+'))
+        .where((String part) => part.isNotEmpty)
+        .toList(growable: false);
+    if (words.isEmpty) {
+      return input;
+    }
+
+    return words
+        .map(
+          (String word) =>
+              '${word[0].toUpperCase()}${word.length > 1 ? word.substring(1).toLowerCase() : ''}',
+        )
+        .join(' ');
   }
 
   @override
   void dispose() {
     _scanLineController.dispose();
     _controller?.dispose();
+    _cvDetectorClient.close();
     super.dispose();
   }
 
@@ -293,10 +303,7 @@ class _ScanScreenState extends State<ScanScreen>
               ),
             ),
           ),
-          const _ScanHudOverlay(
-            primaryContainer: _primaryContainer,
-            onSurface: _onSurface,
-          ),
+          const _ScanHudOverlay(primaryContainer: _primaryContainer),
           Positioned.fill(
             child: AnimatedBuilder(
               animation: _scanLineAnimation,
@@ -333,7 +340,6 @@ class _ScanScreenState extends State<ScanScreen>
                 _controller != null &&
                 _controller!.value.isInitialized &&
                 !_capturing,
-            onSuggestion: _openSuggestionResult,
           ),
           _TopBar(
             onClose: () {
@@ -470,47 +476,48 @@ class _FullScreenCameraPreview extends StatelessWidget {
 class _ScanHudOverlay extends StatelessWidget {
   const _ScanHudOverlay({
     required this.primaryContainer,
-    required this.onSurface,
   });
 
   final Color primaryContainer;
-  final Color onSurface;
+  static const double _frameVerticalOffset = -154;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        final double frameW = (constraints.maxWidth * 0.8).clamp(0.0, 400.0);
-        final double frameH = (constraints.maxHeight * 0.52).clamp(220.0, 500.0);
+        final double frameW = (constraints.maxWidth * 0.61).clamp(0.0, 286.0);
+        final double frameH = (constraints.maxHeight * 0.23).clamp(140.0, 220.0);
 
         return Stack(
           alignment: Alignment.center,
           children: <Widget>[
             IgnorePointer(
-              child: SizedBox(
-                width: frameW,
-                height: frameH,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: <Widget>[
-                    _CornerBracket(alignment: Alignment.topLeft, color: primaryContainer),
-                    _CornerBracket(alignment: Alignment.topRight, color: primaryContainer),
-                    _CornerBracket(alignment: Alignment.bottomLeft, color: primaryContainer),
-                    _CornerBracket(alignment: Alignment.bottomRight, color: primaryContainer),
-                    const _StaggerPulseDot(
-                      alignment: Alignment(-0.35, -0.45),
-                      delay: Duration.zero,
-                    ),
-                    const _StaggerPulseDot(
-                      alignment: Alignment(0.42, 0.38),
-                      delay: Duration(milliseconds: 300),
-                    ),
-                    const _StaggerPulseDot(
-                      alignment: Alignment(0.05, 0.02),
-                      delay: Duration(milliseconds: 600),
-                    ),
-                    _AnalyzingChip(onSurface: onSurface),
-                  ],
+              child: Transform.translate(
+                offset: const Offset(0, _frameVerticalOffset),
+                child: SizedBox(
+                  width: frameW,
+                  height: frameH,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: <Widget>[
+                      _CornerBracket(alignment: Alignment.topLeft, color: primaryContainer),
+                      _CornerBracket(alignment: Alignment.topRight, color: primaryContainer),
+                      _CornerBracket(alignment: Alignment.bottomLeft, color: primaryContainer),
+                      _CornerBracket(alignment: Alignment.bottomRight, color: primaryContainer),
+                      const _StaggerPulseDot(
+                        alignment: Alignment(-0.35, -0.45),
+                        delay: Duration.zero,
+                      ),
+                      const _StaggerPulseDot(
+                        alignment: Alignment(0.42, 0.38),
+                        delay: Duration(milliseconds: 300),
+                      ),
+                      const _StaggerPulseDot(
+                        alignment: Alignment(0.05, 0.02),
+                        delay: Duration(milliseconds: 600),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -653,100 +660,6 @@ class _StaggerPulseDotState extends State<_StaggerPulseDot>
   }
 }
 
-class _AnalyzingChip extends StatelessWidget {
-  const _AnalyzingChip({required this.onSurface});
-
-  final Color onSurface;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.center,
-      child: _ChipFadeWrapper(onSurface: onSurface),
-    );
-  }
-}
-
-class _ChipFadeWrapper extends StatefulWidget {
-  const _ChipFadeWrapper({required this.onSurface});
-
-  final Color onSurface;
-
-  @override
-  State<_ChipFadeWrapper> createState() => _ChipFadeWrapperState();
-}
-
-class _ChipFadeWrapperState extends State<_ChipFadeWrapper>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _c;
-  late Animation<double> _opacity;
-
-  @override
-  void initState() {
-    super.initState();
-    _c = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2200),
-    )..repeat(reverse: true);
-    _opacity = Tween<double>(begin: 0.55, end: 1.0).animate(
-      CurvedAnimation(parent: _c, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _opacity,
-      builder: (BuildContext context, Widget? child) {
-        return Opacity(
-          opacity: _opacity.value,
-          child: child,
-        );
-      },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(999),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Icon(
-                  Icons.auto_awesome_rounded,
-                  size: 18,
-                  color: const Color(0xFFF97316),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'ANALYZING INGREDIENTS...',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.2,
-                    color: widget.onSurface,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ScanLinePainter extends CustomPainter {
   _ScanLinePainter({
     required this.progress,
@@ -755,13 +668,14 @@ class _ScanLinePainter extends CustomPainter {
 
   final double progress;
   final Color color;
+  static const double _frameVerticalOffset = -132;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final double frameW = (size.width * 0.8).clamp(0.0, 400.0);
-    final double frameH = (size.height * 0.52).clamp(220.0, 500.0);
+    final double frameW = (size.width * 0.68).clamp(0.0, 320.0);
+    final double frameH = (size.height * 0.28).clamp(160.0, 250.0);
     final double left = (size.width - frameW) / 2;
-    final double top = (size.height - frameH) / 2;
+    final double top = (size.height - frameH) / 2 + _frameVerticalOffset;
     final double y = top + 4 + (frameH - 8) * progress;
 
     final Paint glow = Paint()
@@ -884,14 +798,12 @@ class _BottomControls extends StatelessWidget {
     required this.onVoice,
     required this.onCapture,
     required this.captureEnabled,
-    required this.onSuggestion,
   });
 
   final VoidCallback onGallery;
   final VoidCallback onVoice;
   final VoidCallback onCapture;
   final bool captureEnabled;
-  final void Function(String name) onSuggestion;
 
   static const Color _primary = Color(0xFF9D4300);
   static const Color _primaryContainer = Color(0xFFF97316);
@@ -920,31 +832,31 @@ class _BottomControls extends StatelessWidget {
           ),
         ),
         child: Padding(
-          padding: EdgeInsets.fromLTRB(28, 48, 28, navReserve),
+          padding: EdgeInsets.fromLTRB(28, 32, 28, navReserve),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               Text(
-                'Snap a photo of your ingredients to start cooking',
+                'Center your ingredients and tap capture',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.plusJakartaSans(
                   color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
                   height: 1.2,
-                  letterSpacing: -0.4,
+                  letterSpacing: -0.2,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'Center your items within the frame for best recognition.',
+                'Keep items inside the frame for better detection.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.beVietnamPro(
                   color: Colors.white.withValues(alpha: 0.7),
                   fontSize: 13,
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
@@ -966,28 +878,6 @@ class _BottomControls extends StatelessWidget {
                     onTap: onVoice,
                   ),
                 ],
-              ),
-              const SizedBox(height: 20),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: <Widget>[
-                    _SuggestionChip(
-                      label: 'Tomato',
-                      onTap: () => onSuggestion('Tomato'),
-                    ),
-                    const SizedBox(width: 8),
-                    _SuggestionChip(
-                      label: 'Basil',
-                      onTap: () => onSuggestion('Basil'),
-                    ),
-                    const SizedBox(width: 8),
-                    _SuggestionChip(
-                      label: 'Bell Pepper',
-                      onTap: () => onSuggestion('Bell Pepper'),
-                    ),
-                  ],
-                ),
               ),
             ],
           ),
@@ -1139,39 +1029,64 @@ class _CaptureButton extends StatelessWidget {
   }
 }
 
-class _SuggestionChip extends StatelessWidget {
-  const _SuggestionChip({
-    required this.label,
-    required this.onTap,
-  });
+class _DetectionLoadingDialog extends StatelessWidget {
+  const _DetectionLoadingDialog();
 
-  final String label;
-  final VoidCallback onTap;
+  static const Color _primaryContainer = Color(0xFFF97316);
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-              ),
-              child: Text(
-                label,
-                style: GoogleFonts.beVietnamPro(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+    return PopScope(
+      canPop: false,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Container(
+                width: double.infinity,
+                constraints: const BoxConstraints(maxWidth: 340),
+                padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A1A1A).withValues(alpha: 0.88),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    const SizedBox(
+                      width: 46,
+                      height: 46,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        color: _primaryContainer,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Identifying ingredients',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'This can take a few seconds while the AI scans your photo.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.beVietnamPro(
+                        color: Colors.white.withValues(alpha: 0.78),
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

@@ -619,7 +619,7 @@ HTML_PAGE = """
                 <div class="step-num">6</div>
                 <div class="step-content">
                     <p class="step-title">AI Analysis</p>
-                    <p class="step-desc">Processed photo sent to Gemini 2.5 Flash for ingredient identification</p>
+                    <p class="step-desc">Processed photo sent to OpenAI Vision for ingredient identification</p>
                 </div>
             </div>
         </div>

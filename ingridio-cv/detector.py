@@ -13,7 +13,7 @@ Full pipeline for a single image:
   3. Denoise — Gaussian Blur → Median Blur → NLM
   4. CLAHE  — adaptive contrast on the Lightness channel
   5. Edge Detection — Sobel + Canny on a grayscale copy
-  6. Gemini Vision API — ingredient identification
+    6. OpenAI Vision API — ingredient identification
 
 Each CV step is its own named function so viva questions can be answered
 about any single step independently.
@@ -22,18 +22,20 @@ about any single step independently.
 import cv2
 import numpy as np
 import base64
+import json
 import os
-from PIL import Image
-from google import genai
+from urllib import error as urlerror
+from urllib import request as urlrequest
 from dotenv import load_dotenv
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 load_dotenv()
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 
-TARGET_SIZE  = (1024, 1024)   # max dimension sent to Gemini
-DENOISE_H    = 10             # NLM denoising strength (luminance)
-GEMINI_MODEL = "gemini-2.5-flash"
+TARGET_SIZE = (1024, 1024)   # max dimension sent to OpenAI
+DENOISE_H = 10               # NLM denoising strength (luminance)
+OPENAI_MODEL = os.getenv("OPENAI_VISION_MODEL", "gpt-4o-mini").strip()
+OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 
 
 # ════════════════════════════════════════════════════════════════════════════════
@@ -270,22 +272,57 @@ def run_edge_detection(image: np.ndarray) -> dict:
 
 
 # ════════════════════════════════════════════════════════════════════════════════
-# STEP 6 — GEMINI VISION
+# STEP 6 — OPENAI VISION
 # ════════════════════════════════════════════════════════════════════════════════
 
-def opencv_to_pil(image: np.ndarray) -> Image.Image:
+def opencv_to_data_url(image: np.ndarray) -> str:
     """
-    Convert an OpenCV BGR array to a PIL RGB Image.
-    Gemini SDK accepts PIL Images; OpenCV uses BGR while PIL expects RGB.
+    Encode an OpenCV image to JPEG and return a base64 data URL.
+    This can be sent directly to the OpenAI vision endpoints.
     """
-    return Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    ok, encoded = cv2.imencode(".jpg", image, [int(cv2.IMWRITE_JPEG_QUALITY), 88])
+    if not ok:
+        raise ValueError("Failed to encode image for OpenAI request.")
+    b64 = base64.b64encode(encoded.tobytes()).decode("utf-8")
+    return f"data:image/jpeg;base64,{b64}"
 
 
-def detect_ingredients_with_gemini(pil_image: Image.Image) -> list[str]:
+def _extract_openai_text(payload: dict) -> str:
     """
-    Send the preprocessed image to Gemini Vision and parse the response
-    into a clean Python list of ingredient strings.
+    Extract text robustly from OpenAI Responses API payload.
     """
+    if isinstance(payload.get("output_text"), str) and payload["output_text"].strip():
+        return payload["output_text"].strip()
+
+    output = payload.get("output")
+    if isinstance(output, list):
+        chunks = []
+        for item in output:
+            if not isinstance(item, dict):
+                continue
+            content = item.get("content")
+            if not isinstance(content, list):
+                continue
+            for block in content:
+                if not isinstance(block, dict):
+                    continue
+                if block.get("type") in {"output_text", "text"}:
+                    text_val = block.get("text")
+                    if isinstance(text_val, str) and text_val.strip():
+                        chunks.append(text_val.strip())
+        if chunks:
+            return "\n".join(chunks)
+
+    raise ValueError("OpenAI response did not contain text output.")
+
+
+def detect_ingredients_with_openai(data_url: str) -> list[str]:
+    """
+    Send the preprocessed image to OpenAI Vision and parse a clean ingredient list.
+    """
+    if not OPENAI_API_KEY:
+        raise ValueError("Missing OPENAI_API_KEY in environment.")
+
     prompt = """
     You are an expert kitchen assistant with perfect ingredient identification skills.
 
@@ -300,12 +337,43 @@ def detect_ingredients_with_gemini(pil_image: Image.Image) -> list[str]:
     - No numbering, no bullets, no explanation — just the list
 
     Example: eggs, milk, cheddar cheese, bell pepper, leftover rice, lemon, butter
-    """
-    response    = client.models.generate_content(
-        model    = GEMINI_MODEL,
-        contents = [prompt, pil_image]
+    """.strip()
+
+    payload = {
+        "model": OPENAI_MODEL,
+        "input": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": prompt},
+                    {"type": "input_image", "image_url": data_url},
+                ],
+            }
+        ],
+        "temperature": 0,
+    }
+
+    req = urlrequest.Request(
+        OPENAI_RESPONSES_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
     )
-    raw_text    = response.text.strip()
+
+    try:
+        with urlrequest.urlopen(req, timeout=60) as resp:
+            body = resp.read().decode("utf-8")
+    except urlerror.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace") if exc.fp else str(exc)
+        raise ValueError(f"OpenAI request failed ({exc.code}): {detail}") from exc
+    except urlerror.URLError as exc:
+        raise ValueError(f"Could not reach OpenAI API: {exc.reason}") from exc
+
+    response_json = json.loads(body)
+    raw_text = _extract_openai_text(response_json)
     ingredients = [item.strip() for item in raw_text.split(",") if item.strip()]
     return ingredients
 
@@ -318,7 +386,7 @@ def detect_ingredients(image_bytes: bytes) -> dict:
     """
     Full CV pipeline:
       bytes → load → resize → denoise (Gaussian + Median + NLM)
-            → CLAHE → edge detection (Sobel + Canny) → Gemini Vision
+                        → CLAHE → edge detection (Sobel + Canny) → OpenAI Vision
 
     Returns:
     {
@@ -349,9 +417,9 @@ def detect_ingredients(image_bytes: bytes) -> dict:
         # 5 — Edge detection (Sobel + Canny) on the enhanced image
         edge_images = run_edge_detection(enhanced)
 
-        # 6 — Ingredient detection via Gemini Vision
-        pil_image   = opencv_to_pil(enhanced)
-        ingredients = detect_ingredients_with_gemini(pil_image)
+        # 6 — Ingredient detection via OpenAI Vision
+        image_data_url = opencv_to_data_url(enhanced)
+        ingredients = detect_ingredients_with_openai(image_data_url)
 
         return {
             "success":     True,
@@ -368,3 +436,9 @@ def detect_ingredients(image_bytes: bytes) -> dict:
             "edges":       {},
             "error":       str(e),
         }
+
+
+
+
+
+

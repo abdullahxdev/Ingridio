@@ -1,6 +1,4 @@
 flask
 flask-cors
 opencv-python-headless
-google-genai
-pillow
 python-dotenv

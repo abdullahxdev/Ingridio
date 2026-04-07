@@ -127,44 +127,16 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
                 child: Row(
                   children: <Widget>[
                     Expanded(
-                      child: Row(
-                        children: <Widget>[
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: _surfaceContainerHigh,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: _primaryContainer,
-                                width: 2,
-                              ),
-                            ),
-                            clipBehavior: Clip.antiAlias,
-                            child: Image.network(
-                              MockData.discoveryProfileAvatarUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const ColoredBox(
-                                color: _surfaceContainerHigh,
-                                child: Icon(Icons.person, color: _secondary),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Ingridio',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.5,
-                                color: _onSurface,
-                              ),
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        'Ingridio',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
+                          color: _onSurface,
+                        ),
                       ),
                     ),
                     IconButton(

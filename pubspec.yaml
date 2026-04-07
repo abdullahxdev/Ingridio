@@ -37,6 +37,7 @@ dependencies:
   google_fonts: ^8.0.2
   camera: ^0.11.0
   permission_handler: ^11.4.0
+  http: ^1.2.2
 
 dev_dependencies:
   flutter_test:

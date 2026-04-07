@@ -238,43 +238,16 @@ class _ProfileScreenState extends State<ProfileScreen>
                 child: Row(
                   children: <Widget>[
                     Expanded(
-                      child: Row(
-                        children: <Widget>[
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: _primaryContainer,
-                                width: 2,
-                              ),
-                            ),
-                            clipBehavior: Clip.antiAlias,
-                            child: Image.network(
-                              MockData.profileHeaderAvatarUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => const ColoredBox(
-                                color: _surfaceContainerHigh,
-                                child: Icon(Icons.person, color: _secondary),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Ingridio',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.5,
-                                color: _onSurface,
-                              ),
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        'Ingridio',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
+                          color: _onSurface,
+                        ),
                       ),
                     ),
                     IconButton(

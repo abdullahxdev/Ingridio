@@ -3,7 +3,6 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:ingridio/data/mock_data.dart';
 import 'package:ingridio/logic/cooked_recipes_store.dart';
 import 'package:ingridio/logic/recipe_rating_store.dart';
 import 'package:ingridio/logic/step_timer_parse.dart';
@@ -358,24 +357,6 @@ class _CookingTopBar extends StatelessWidget {
           padding: EdgeInsets.only(top: top, left: 16, right: 4),
           child: Row(
             children: <Widget>[
-              ClipOval(
-                child: SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: Image.network(
-                    MockData.profileAvatarUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (BuildContext context, Object error,
-                            StackTrace? stackTrace) =>
-                        const ColoredBox(
-                          color: Color(0xFFFFE3D1),
-                          child: Icon(Icons.person_rounded,
-                              color: Color(0xFF924C00)),
-                        ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
               Text(
                 'Ingridio',
                 style: GoogleFonts.plusJakartaSans(

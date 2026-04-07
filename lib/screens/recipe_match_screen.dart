@@ -319,33 +319,14 @@ class _TopBar extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
-            Row(
-              children: <Widget>[
-                ClipOval(
-                  child: SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: Image.network(
-                      MockData.profileAvatarUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const ColoredBox(
-                        color: Color(0xFFFFE3D1),
-                        child: Icon(Icons.person_rounded, color: Color(0xFF924C00)),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'Ingridio',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 22,
-                    letterSpacing: -0.4,
-                    color: _onSurface,
-                  ),
-                ),
-              ],
+            Text(
+              'Ingridio',
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w800,
+                fontSize: 22,
+                letterSpacing: -0.4,
+                color: _onSurface,
+              ),
             ),
             IconButton(
               onPressed: onSettings,
@@ -980,24 +961,22 @@ class _QuickestCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 18),
-                OutlinedButton(
+                FilledButton(
                   onPressed: onView,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _primaryContainer,
-                    side: BorderSide(
-                      color: _primaryContainer.withValues(alpha: 0.25),
-                      width: 2,
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _primaryContainer,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(46),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   child: Text(
                     'View Recipe',
                     style: GoogleFonts.plusJakartaSans(
                       fontWeight: FontWeight.w800,
-                      fontSize: 15,
+                      fontSize: 14,
                     ),
                   ),
                 ),
@@ -1085,24 +1064,22 @@ class _SecondaryRecipeCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 14),
-                OutlinedButton(
+                FilledButton(
                   onPressed: onView,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _primaryContainer,
-                    side: BorderSide(
-                      color: _primaryContainer.withValues(alpha: 0.25),
-                      width: 2,
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _primaryContainer,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(42),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   child: Text(
                     'View Recipe',
                     style: GoogleFonts.plusJakartaSans(
                       fontWeight: FontWeight.w800,
-                      fontSize: 14,
+                      fontSize: 13,
                     ),
                   ),
                 ),

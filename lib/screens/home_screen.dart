@@ -1,4 +1,4 @@
-import 'dart:ui';
+ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -95,31 +95,32 @@ class _HomeScreenState extends State<HomeScreen> {
               const ProfileScreen(),
             ],
           ),
-          Positioned(
-            right: 24,
-            bottom: navBarHeight + 16,
-            child: Material(
-              color: _primaryContainer,
-              elevation: 8,
-              shadowColor: const Color(0x669D4300),
-              shape: const CircleBorder(
-                side: BorderSide(color: Colors.white, width: 4),
-              ),
-              child: InkWell(
-                onTap: () => _setTab(_tabScan),
-                customBorder: const CircleBorder(),
-                child: const SizedBox(
-                  width: 64,
-                  height: 64,
-                  child: Icon(
-                    Icons.document_scanner_rounded,
-                    color: Colors.white,
-                    size: 30,
+          if (_tabIndex != _tabScan)
+            Positioned(
+              right: 24,
+              bottom: navBarHeight + 16,
+              child: Material(
+                color: _primaryContainer,
+                elevation: 8,
+                shadowColor: const Color(0x669D4300),
+                shape: const CircleBorder(
+                  side: BorderSide(color: Colors.white, width: 4),
+                ),
+                child: InkWell(
+                  onTap: () => _setTab(_tabScan),
+                  customBorder: const CircleBorder(),
+                  child: const SizedBox(
+                    width: 64,
+                    height: 64,
+                    child: Icon(
+                      Icons.document_scanner_rounded,
+                      color: Colors.white,
+                      size: 30,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
         ],
       ),
       bottomNavigationBar: _GlassBottomNav(
@@ -183,39 +184,14 @@ class _HomeTab extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: _primaryContainer,
-                            width: 2,
-                          ),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Image.network(
-                          MockData.profileAvatarUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const ColoredBox(
-                            color: _surfaceContainerHigh,
-                            child: Icon(Icons.person, color: _secondary),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Ingridio',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.5,
-                          color: _onSurface,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    'Ingridio',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
+                      color: _onSurface,
+                    ),
                   ),
                   IconButton(
                     onPressed: onSettings,

@@ -7,7 +7,7 @@
 
 **Ingridio CV Backend** is the computer vision engine behind the Ingridio cooking app. It solves one specific problem: a user opens their fridge, takes a photo, and within seconds knows exactly what ingredients they have available — without typing a single word.
 
-The system accepts any fridge or pantry photo, runs it through a multi-step OpenCV preprocessing pipeline, sends it to Google's Gemini Vision API (a state-of-the-art pre-trained multimodal model), and returns a clean, structured list of detected food ingredients as JSON.
+The system accepts any fridge or pantry photo, runs it through a multi-step OpenCV preprocessing pipeline, sends it to OpenAI's vision API, and returns a clean, structured list of detected food ingredients as JSON.
 
 This project falls under the **Object Detection and Recognition** category of Computer Vision, using a pre-trained deep learning model to identify and name multiple objects within a single image.
 
@@ -43,8 +43,7 @@ Output: ["eggs", "milk", "cheddar cheese", "yellow bell pepper",
 | **Flask** | Latest | Web server framework — hosts the API and web UI |
 | **Flask-CORS** | Latest | Allows Flutter app to call the Python server cross-origin |
 | **OpenCV** (`opencv-python-headless`) | Latest | Image preprocessing — resize, denoise, contrast enhancement |
-| **Pillow (PIL)** | Latest | Image format conversion between OpenCV and Gemini SDK |
-| **google-genai** | Latest | Official Google Gemini API client (new SDK) |
+| **OpenAI Responses API** | HTTPS | Multimodal vision inference endpoint |
 | **python-dotenv** | Latest | Loads API keys securely from `.env` file |
 | **NumPy** | Latest | Numerical array operations for image data |
 
@@ -52,11 +51,11 @@ Output: ["eggs", "milk", "cheddar cheese", "yellow bell pepper",
 
 | Component | Details |
 |-----------|---------|
-| **Model** | Gemini 2.5 Flash (`gemini-2.5-flash`) |
-| **Provider** | Google AI (via Google AI Studio) |
+| **Model** | Configurable via `OPENAI_VISION_MODEL` (default: `gpt-4o-mini`) |
+| **Provider** | OpenAI |
 | **Type** | Pre-trained multimodal large language model |
 | **Capability used** | Vision — image understanding and object recognition |
-| **API endpoint** | `https://generativelanguage.googleapis.com` |
+| **API endpoint** | `https://api.openai.com/v1/responses` |
 | **Authentication** | API Key (stored in `.env`, loaded via `python-dotenv`) |
 | **Fine-tuned?** | No — used as-is with prompt engineering |
 
@@ -64,7 +63,7 @@ Output: ["eggs", "milk", "cheddar cheese", "yellow bell pepper",
 
 ## 🧠 How the Model Works
 
-Gemini 2.5 Flash is a **multimodal pre-trained model** built by Google. It was trained on a massive dataset of text and images from across the internet, giving it the ability to understand the visual content of any image and describe it in natural language.
+A multimodal OpenAI model is used for image understanding and ingredient extraction.
 
 **It is NOT fine-tuned for this project.** Instead, the model's behavior is controlled through **prompt engineering** — carefully written instructions sent with every image that tell the model exactly what to do:
 
@@ -73,7 +72,7 @@ Gemini 2.5 Flash is a **multimodal pre-trained model** built by Google. It was t
 - Ignore non-food items
 - Return a comma-separated list only
 
-This approach is standard in professional AI applications. Fine-tuning would only be required if the base model performed poorly on food recognition — which it does not. Gemini's general visual understanding is accurate enough to identify ingredients in real kitchen conditions.
+This approach is standard in professional AI applications. Fine-tuning would only be required if the base model performed poorly on food recognition.
 
 ---
 
@@ -117,7 +116,7 @@ Raw Image Bytes
                   │
                   ▼
 ┌─────────────────────────────────────────┐
-│  STEP 5 — Gemini Vision Detection       │
+│  STEP 5 — OpenAI Vision Detection       │
 │  Pre-trained model analyzes image       │
 │  Returns comma-separated ingredient list│
 └─────────────────┬───────────────────────┘
@@ -141,8 +140,8 @@ Phone cameras, especially in low light (like inside a fridge), introduce digital
 **Step 4 — CLAHE (Contrast Enhancement)**
 Fridges are often darker inside than outside. Low contrast makes it hard for any model to distinguish objects. CLAHE (Contrast Limited Adaptive Histogram Equalisation) solves this by enhancing contrast in small local regions of the image rather than globally — so bright areas don't get overexposed while dark areas become clearer. We apply it only to the Lightness (L) channel after converting to LAB color space, so colors remain natural.
 
-**Step 5 — Gemini Vision**
-The preprocessed image (converted from OpenCV BGR to PIL RGB format) is sent to Gemini 2.5 Flash with a structured prompt. The model returns a plain text, comma-separated list of all food ingredients it can identify. This text is split into a Python list and returned as JSON.
+**Step 5 — OpenAI Vision**
+The preprocessed image is encoded and sent to the OpenAI Responses API with a structured prompt. The model returns a plain text, comma-separated list of ingredients, which is then parsed into JSON.
 
 ---
 
@@ -152,7 +151,7 @@ The preprocessed image (converted from OpenCV BGR to PIL RGB format) is sent to 
 ingridio-cv/
 │
 ├── app.py              ← Flask server (API endpoints + web UI)
-├── detector.py         ← Full CV pipeline (OpenCV + Gemini)
+├── detector.py         ← Full CV pipeline (OpenCV + OpenAI Vision)
 ├── requirements.txt    ← All Python dependencies
 ├── .env                ← API key (never share or commit this)
 ├── README.md           ← This file
@@ -164,8 +163,8 @@ ingridio-cv/
 **`detector.py`** — The brain of the project. Contains the entire CV pipeline as modular functions:
 - `load_image_from_bytes()` — Step 1
 - `preprocess_image()` — Steps 2, 3, 4
-- `opencv_to_pil()` — Format conversion
-- `detect_ingredients_with_gemini()` — Step 5
+- `opencv_to_data_url()` — OpenAI-compatible image conversion
+- `detect_ingredients_with_openai()` — Step 5
 - `detect_ingredients()` — Master function that calls all steps in order
 
 **`app.py`** — The Flask web server. Contains:
@@ -173,9 +172,9 @@ ingridio-cv/
 - `POST /detect` — Main API endpoint used by Flutter and the web UI
 - `GET /health` — Quick check to confirm server is running
 
-**`.env`** — Contains the Gemini API key in this format:
+**`.env`** — Contains the OpenAI API key in this format:
 ```
-GEMINI_API_KEY=your_key_here
+OPENAI_API_KEY=your_key_here
 ```
 
 ---
@@ -235,7 +234,7 @@ Field value:  (JPG or PNG image file)
 
 ### Prerequisites
 - Python 3.9 or above
-- A Gemini API key from [aistudio.google.com](https://aistudio.google.com) (free)
+- An OpenAI API key
 
 ### Installation
 
@@ -248,7 +247,7 @@ py -m pip install -r requirements.txt
 
 Open `.env` and replace the placeholder:
 ```
-GEMINI_API_KEY=your_actual_gemini_api_key_here
+OPENAI_API_KEY=your_actual_openai_api_key_here
 ```
 
 **3. Start the server:**
@@ -303,7 +302,7 @@ Tested on various fridge and pantry images. The system consistently detects:
 
 ## ⚠️ Limitations
 
-- Requires internet connection (Gemini is a cloud API)
+- Requires internet connection (OpenAI Vision is a cloud API)
 - Very dark or blurry images reduce detection accuracy
 - Items fully hidden behind other objects cannot be detected
 - Free tier API limit: 250 requests/day (sufficient for development and demo)

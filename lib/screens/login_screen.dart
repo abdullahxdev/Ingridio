@@ -125,27 +125,6 @@ class _Branding extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: <Widget>[
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF97316),
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: const <BoxShadow>[
-              BoxShadow(
-                color: Color(0x331A0A00),
-                blurRadius: 30,
-                offset: Offset(0, 12),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.restaurant_menu,
-            color: Colors.white,
-            size: 34,
-          ),
-        ),
-        const SizedBox(height: 14),
         const Text(
           'Ingridio',
           style: TextStyle(
