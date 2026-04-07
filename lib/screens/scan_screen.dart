@@ -847,13 +847,14 @@ class _BottomControls extends StatelessWidget {
                   letterSpacing: -0.2,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
                 'Keep items inside the frame for better detection.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.beVietnamPro(
-                  color: Colors.white.withValues(alpha: 0.7),
-                  fontSize: 13,
+                  color: Colors.white.withValues(alpha: 0.75),
+                  fontSize: 14,
+                  height: 1.4,
                 ),
               ),
               const SizedBox(height: 24),
@@ -902,9 +903,9 @@ class _SideAction extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(18),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
@@ -912,11 +913,11 @@ class _SideAction extends StatelessWidget {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                 child: Container(
-                  width: 56,
-                  height: 56,
+                  width: 60,
+                  height: 60,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
+                    color: Colors.white.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                   ),
@@ -928,9 +929,9 @@ class _SideAction extends StatelessWidget {
             Text(
               label,
               style: GoogleFonts.beVietnamPro(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: Colors.white.withValues(alpha: 0.8),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.white.withValues(alpha: 0.9),
               ),
             ),
           ],

@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:ingridio/logic/route_transitions.dart';
 import 'package:ingridio/screens/login_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -107,8 +108,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _goToLogin() {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (_) => const LoginScreen(),
+      PageRouteBuilder<void>(
+        transitionDuration: const Duration(milliseconds: 400),
+        pageBuilder: (BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation) {
+          return const LoginScreen();
+        },
+        transitionsBuilder: (BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) {
+          return FadeTransition(
+            opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic),
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic),
+              ),
+              child: child,
+            ),
+          );
+        },
       ),
     );
   }
@@ -352,9 +367,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const double heroMax = 280;
           final double heroHeight = min(heroMax, maxW * 0.92);
           final double scanBox = min(maxW * 0.58, heroHeight * 0.62);
-          final double titleSize = maxW < 360 ? 26 : (maxW < 400 ? 30 : 32);
+          final double titleSize = maxW < 360 ? 27 : (maxW < 400 ? 32 : 36);
           final double bodySize =
-              constraints.maxHeight < 560 ? 15.0 : 17.0;
+              constraints.maxHeight < 560 ? 16.0 : 17.5;
 
           return Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -558,7 +573,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 child: Align(
                   alignment: Alignment.topLeft,
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 12),
+                    padding: const EdgeInsets.only(top: 20),
                     child: SingleChildScrollView(
                       physics: const ClampingScrollPhysics(),
                       child: Column(
@@ -569,29 +584,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             style: GoogleFonts.beVietnamPro(
                               color: _secondary,
                               fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              letterSpacing: 1.3,
+                              fontSize: 12,
+                              letterSpacing: 1.4,
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 14),
                           Text(
                             slide.title,
                             style: GoogleFonts.plusJakartaSans(
                               fontWeight: FontWeight.w800,
                               fontSize: titleSize,
-                              height: 1.12,
+                              height: 1.1,
                               color: _onSurface,
                               letterSpacing: -0.6,
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 14),
                           Text(
                             slide.description,
                             style: GoogleFonts.beVietnamPro(
                               color: _onSurfaceVariant,
                               fontWeight: FontWeight.w400,
                               fontSize: bodySize,
-                              height: 1.45,
+                              height: 1.5,
+                              letterSpacing: 0.2,
                             ),
                           ),
                         ],
