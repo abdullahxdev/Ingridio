@@ -1,89 +1,147 @@
 """
 app.py
 ------
-Ingridio CV Backend — Flask Server
+Ingridio — Flask Backend
 
 Endpoints:
-  GET  /          → Web UI for testing (upload image, see results)
-  POST /detect    → API endpoint (used by Flutter app)
-  GET  /health    → Quick check that server is running
+  GET  /         — Web UI (upload photo, view ingredients + edge detection results)
+  POST /detect   — API used by Flutter app — returns ingredients + edge photos
+  GET  /health   — Server liveness check
 """
 
 from flask import Flask, request, jsonify, render_template_string
 from flask_cors import CORS
 from detector import detect_ingredients
 
-app = Flask(__name__)
-CORS(app)  # Allow Flutter app to call this server from any origin
+app  = Flask(__name__)
+CORS(app)
 
 
-# ── Web UI (for CV demo — no Flutter needed) ─────────────────────────────────
+# ── Web UI ────────────────────────────────────────────────────────────────────
 HTML_PAGE = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ingridio — Fridge Vision Scanner</title>
+    <title>Ingridio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { 
+            box-sizing: border-box;
+        }
 
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            background: #0f1117;
-            color: #f0f0f0;
+        html, body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #FFFFFF;
+            color: #1F2937;
+            margin: 0;
+            padding: 0;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 40px 20px;
+        }
+
+        body {
+            padding: 56px 24px;
+        }
+
+        /* ─── Header ─────────────────────────────────────────────────────────── */
+        .header {
+            text-align: center;
+            width: 100%;
+            max-width: 720px;
+            margin-bottom: 56px;
         }
 
         .logo {
-            font-size: 2.2rem;
-            font-weight: 800;
-            color: #4ade80;
-            letter-spacing: -1px;
-            margin-bottom: 6px;
+            font-size: 36px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: #10B981;
+            margin: 0;
+            padding: 0;
+            line-height: 1;
         }
 
         .tagline {
-            color: #6b7280;
-            font-size: 0.95rem;
-            margin-bottom: 40px;
+            color: #6B7280;
+            font-size: 15px;
+            font-weight: 500;
+            letter-spacing: 0.2px;
+            margin-top: 12px;
+            padding: 0;
+        }
+
+        /* ─── Container ──────────────────────────────────────────────────────── */
+        .container {
+            width: 100%;
+            max-width: 720px;
         }
 
         .card {
-            background: #1c1f2e;
-            border: 1px solid #2a2d3e;
-            border-radius: 16px;
-            padding: 32px;
-            width: 100%;
-            max-width: 560px;
-            margin-bottom: 24px;
-        }
-
-        .card h2 {
-            font-size: 1rem;
-            color: #9ca3af;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 20px;
-        }
-
-        .upload-area {
-            border: 2px dashed #2a2d3e;
+            background: #FFFFFF;
+            border: 1px solid #E5E7EB;
             border-radius: 12px;
             padding: 40px;
-            text-align: center;
-            cursor: pointer;
-            transition: border-color 0.2s;
-            position: relative;
+            margin-bottom: 32px;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
 
-        .upload-area:hover { border-color: #4ade80; }
+        .card:hover {
+            border-color: #D1D5DB;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
 
-        .upload-area input[type="file"] {
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 28px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #F3F4F6;
+        }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 0.4px;
+            color: #1F2937;
+            text-transform: uppercase;
+            margin: 0;
+            padding: 0;
+        }
+
+        .icon {
+            width: 22px;
+            height: 22px;
+            stroke: #10B981;
+            stroke-width: 1.5;
+            flex-shrink: 0;
+        }
+
+        /* ─── Upload Area ────────────────────────────────────────────────────── */
+        .upload-container {
+            position: relative;
+            border: 2px dashed #D1D5DB;
+            border-radius: 10px;
+            padding: 72px 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            background: #FAFBFC;
+        }
+
+        .upload-container:hover {
+            border-color: #10B981;
+            background: #F0FDF4;
+        }
+
+        .upload-container input {
             position: absolute;
             inset: 0;
             opacity: 0;
@@ -92,262 +150,576 @@ HTML_PAGE = """
             height: 100%;
         }
 
-        .upload-icon { font-size: 2.5rem; margin-bottom: 12px; }
-
-        .upload-area p {
-            color: #6b7280;
-            font-size: 0.9rem;
+        .upload-icon {
+            width: 56px;
+            height: 56px;
+            stroke: #6B7280;
+            stroke-width: 1.5;
+            margin: 0 auto 20px;
+            display: block;
+            transition: stroke 0.2s ease;
         }
 
-        #preview-container { display: none; margin-top: 16px; }
+        .upload-container:hover .upload-icon {
+            stroke: #10B981;
+        }
+
+        .upload-text {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1F2937;
+            margin: 0 0 8px 0;
+            padding: 0;
+        }
+
+        .upload-subtext {
+            font-size: 14px;
+            color: #9CA3AF;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* ─── Preview ────────────────────────────────────────────────────────── */
+        #preview-container {
+            display: none;
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #F9FAFB;
+            border: 1px solid #E5E7EB;
+            margin-top: 32px;
+        }
 
         #preview {
             width: 100%;
-            border-radius: 10px;
-            max-height: 300px;
+            max-height: 420px;
             object-fit: cover;
+            display: block;
         }
 
+        .preview-remove {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(31, 41, 55, 0.85);
+            color: #FFFFFF;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .preview-remove:hover {
+            background: rgba(31, 41, 55, 0.95);
+        }
+
+        /* ─── Button ─────────────────────────────────────────────────────────── */
         .btn {
             width: 100%;
-            padding: 14px;
-            background: #4ade80;
-            color: #0f1117;
+            padding: 14px 20px;
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            color: #FFFFFF;
             border: none;
             border-radius: 10px;
-            font-size: 1rem;
-            font-weight: 700;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
             cursor: pointer;
-            margin-top: 20px;
-            transition: background 0.2s;
+            margin-top: 32px;
+            transition: all 0.2s ease;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
         }
 
-        .btn:hover { background: #22c55e; }
-        .btn:disabled { background: #2a2d3e; color: #6b7280; cursor: not-allowed; }
+        .btn:hover:not(:disabled) {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(16, 185, 129, 0.3);
+        }
 
-        .spinner {
+        .btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            background: #E5E7EB;
+            color: #9CA3AF;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* ─── Loading State ──────────────────────────────────────────────────── */
+        .loader {
             display: none;
             text-align: center;
-            padding: 20px;
-            color: #4ade80;
-            font-size: 0.9rem;
+            padding: 48px 32px;
         }
 
-        .results { display: none; }
-
-        .ingredient-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 8px;
+        .loader-text {
+            font-size: 15px;
+            color: #6B7280;
+            margin-bottom: 24px;
+            font-weight: 500;
         }
 
-        .ingredient-tag {
-            background: #0f2e1a;
-            border: 1px solid #4ade80;
-            color: #4ade80;
-            padding: 6px 14px;
-            border-radius: 999px;
-            font-size: 0.875rem;
+        .loader-bar {
+            width: 100%;
+            height: 3px;
+            background: #E5E7EB;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .loader-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #10B981, #059669);
+            animation: loading 2.5s ease-in-out infinite;
+        }
+
+        @keyframes loading {
+            0% { width: 0%; }
+            50% { width: 100%; }
+            100% { width: 0%; }
+        }
+
+        /* ─── Results ────────────────────────────────────────────────────────── */
+        #results-card, #edges-card {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .count-badge {
-            background: #4ade80;
-            color: #0f1117;
-            font-weight: 700;
-            padding: 4px 12px;
-            border-radius: 999px;
-            font-size: 0.85rem;
             display: inline-block;
-            margin-bottom: 16px;
+            background: #F0FDF4;
+            border: 1px solid #BBEF63;
+            color: #15803D;
+            padding: 10px 18px;
+            border-radius: 24px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 24px;
         }
 
+        .ingredients-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .ingredient-tag {
+            background: #F0FDF4;
+            border: 1px solid #DCFCE7;
+            color: #15803D;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .ingredient-tag:hover {
+            background: #DCFCE7;
+            border-color: #10B981;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+        }
+
+        /* ─── Edge Detection Grid ────────────────────────────────────────────── */
+        .edge-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 640px) {
+            .edge-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .edge-item {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .edge-label {
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: #6B7280;
+            text-transform: uppercase;
+        }
+
+        .edge-item img {
+            width: 100%;
+            border-radius: 10px;
+            border: 1px solid #E5E7EB;
+            background: #F9FAFB;
+            transition: all 0.2s ease;
+            display: block;
+        }
+
+        .edge-item img:hover {
+            border-color: #10B981;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+        }
+
+        /* ─── Error ──────────────────────────────────────────────────────────── */
         .error-box {
             display: none;
-            background: #2d1515;
-            border: 1px solid #ef4444;
-            color: #ef4444;
+            background: #FEF2F2;
+            border: 1px solid #FECACA;
+            color: #991B1B;
             padding: 14px 18px;
             border-radius: 10px;
-            margin-top: 16px;
-            font-size: 0.875rem;
+            margin-top: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            animation: slideDown 0.2s ease;
         }
 
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ─── Pipeline Steps ─────────────────────────────────────────────────── */
         .pipeline-steps {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 14px;
         }
 
         .step {
             display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 14px;
-            background: #0f1117;
-            border-radius: 8px;
-            font-size: 0.875rem;
-            color: #6b7280;
+            gap: 18px;
+            padding: 18px;
+            background: #F9FAFB;
+            border: 1px solid #E5E7EB;
+            border-radius: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .step:hover {
+            background: #F3F4F6;
+            border-color: #D1D5DB;
         }
 
         .step-num {
-            background: #2a2d3e;
-            color: #9ca3af;
-            width: 24px;
-            height: 24px;
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            color: #FFFFFF;
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.75rem;
+            font-size: 13px;
             font-weight: 700;
             flex-shrink: 0;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1F2937;
+            margin: 0 0 6px 0;
+            padding: 0;
+        }
+
+        .step-desc {
+            font-size: 14px;
+            color: #6B7280;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* ─── Responsive ─────────────────────────────────────────────────────── */
+        @media (max-width: 640px) {
+            body {
+                padding: 40px 16px;
+            }
+
+            .header {
+                margin-bottom: 40px;
+            }
+
+            .logo {
+                font-size: 32px;
+            }
+
+            .card {
+                padding: 28px;
+            }
+
+            .upload-container {
+                padding: 48px 24px;
+            }
         }
     </style>
 </head>
 <body>
 
-    <div class="logo">🥦 Ingridio</div>
-    <p class="tagline">Fridge Vision Scanner — CV Project Demo</p>
+<div class="header">
+    <h1 class="logo">Ingridio</h1>
+    <p class="tagline">AI-Powered Ingredient Detection</p>
+</div>
+
+<div class="container">
 
     <!-- Upload Card -->
     <div class="card">
-        <h2>📸 Upload Fridge Photo</h2>
-        <div class="upload-area" id="upload-area">
+        <div class="card-header">
+            <svg class="icon" fill="none" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <h2 class="card-title">Upload Photo</h2>
+        </div>
+        <div class="upload-container">
             <input type="file" id="file-input" accept="image/*" onchange="handleFile(event)">
-            <div class="upload-icon">🖼️</div>
-            <p>Click to upload or drag & drop</p>
-            <p style="margin-top:6px; font-size:0.8rem;">JPG, PNG supported</p>
+            <svg class="upload-icon" fill="none" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+            </svg>
+            <p class="upload-text">Click to upload or drag and drop</p>
+            <p class="upload-subtext">JPG, PNG — up to 10 MB</p>
         </div>
-
         <div id="preview-container">
-            <img id="preview" src="" alt="Preview">
+            <img id="preview" src="" alt="Photo preview">
+            <button class="preview-remove" onclick="clearPreview()">Remove</button>
         </div>
-
         <button class="btn" id="scan-btn" onclick="scanImage()" disabled>
-            🔍 Scan Ingredients
+            <svg class="icon" fill="none" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            Analyze Ingredients
         </button>
-
         <div class="error-box" id="error-box"></div>
     </div>
 
-    <!-- Loading -->
-    <div class="card spinner" id="spinner">
-        ⏳ Preprocessing image with OpenCV...<br><br>
-        🤖 Sending to Gemini Vision API...<br><br>
-        Please wait a moment.
+    <!-- Loading State -->
+    <div class="card loader" id="loader">
+        <p class="loader-text">Processing photo...</p>
+        <div class="loader-bar">
+            <div class="loader-progress"></div>
+        </div>
     </div>
 
     <!-- Results Card -->
-    <div class="card results" id="results-card">
-        <h2>✅ Detected Ingredients</h2>
+    <div class="card" id="results-card">
+        <div class="card-header">
+            <svg class="icon" fill="none" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <h2 class="card-title">Detected Ingredients</h2>
+        </div>
         <div class="count-badge" id="count-badge"></div>
-        <div class="ingredient-grid" id="ingredient-grid"></div>
+        <div class="ingredients-grid" id="ingredients-grid"></div>
     </div>
 
-    <!-- CV Pipeline Explanation Card -->
-    <div class="card">
-        <h2>⚙️ CV Pipeline</h2>
-        <div class="pipeline-steps">
-            <div class="step">
-                <div class="step-num">1</div>
-                <span><strong style="color:#f0f0f0">Image Load</strong> — Raw bytes decoded into OpenCV NumPy array</span>
+    <!-- Edge Detection Card -->
+    <div class="card" id="edges-card">
+        <div class="card-header">
+            <svg class="icon" fill="none" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 5a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V5z"/>
+            </svg>
+            <h2 class="card-title">Edge Detection Results</h2>
+        </div>
+        <div class="edge-grid">
+            <div class="edge-item">
+                <span class="edge-label">Sobel X — Vertical Edges</span>
+                <img id="img-sobel-x" src="" alt="Sobel X">
             </div>
-            <div class="step">
-                <div class="step-num">2</div>
-                <span><strong style="color:#f0f0f0">Resize</strong> — Scaled to max 1024×1024 preserving aspect ratio</span>
+            <div class="edge-item">
+                <span class="edge-label">Sobel Y — Horizontal Edges</span>
+                <img id="img-sobel-y" src="" alt="Sobel Y">
             </div>
-            <div class="step">
-                <div class="step-num">3</div>
-                <span><strong style="color:#f0f0f0">Denoise</strong> — Non-Local Means denoising removes camera noise</span>
+            <div class="edge-item">
+                <span class="edge-label">Sobel Full — All Edges</span>
+                <img id="img-sobel-combined" src="" alt="Sobel Full">
             </div>
-            <div class="step">
-                <div class="step-num">4</div>
-                <span><strong style="color:#f0f0f0">CLAHE</strong> — Adaptive contrast enhancement for dark fridge photos</span>
-            </div>
-            <div class="step">
-                <div class="step-num">5</div>
-                <span><strong style="color:#f0f0f0">Gemini Vision</strong> — Pre-trained model detects and names all ingredients</span>
+            <div class="edge-item">
+                <span class="edge-label">Canny — Optimal Detection</span>
+                <img id="img-canny" src="" alt="Canny">
             </div>
         </div>
     </div>
 
-    <script>
-        let selectedFile = null;
+    <!-- Pipeline Card -->
+    <div class="card">
+        <div class="card-header">
+            <svg class="icon" fill="none" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            <h2 class="card-title">Processing Pipeline</h2>
+        </div>
+        <div class="pipeline-steps">
+            <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                    <p class="step-title">Photo Load</p>
+                    <p class="step-desc">Raw bytes decoded into OpenCV array (BGR format) using cv2.imdecode</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                    <p class="step-title">Resize</p>
+                    <p class="step-desc">Aspect-ratio-preserving downscale to 1024×1024 using INTER_AREA interpolation</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-content">
+                    <p class="step-title">Noise Reduction</p>
+                    <p class="step-desc">Three-step filtering: Gaussian Blur (electronic noise), Bilateral Filter (salt-and-pepper), NLM Denoise (texture-preserving)</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">4</div>
+                <div class="step-content">
+                    <p class="step-title">Contrast Enhancement</p>
+                    <p class="step-desc">CLAHE adaptive histogram equalisation (8×8 tiles, clip 2.0) on L channel in LAB space</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">5</div>
+                <div class="step-content">
+                    <p class="step-title">Edge Detection</p>
+                    <p class="step-desc">Sobel (3×3 kernels) and Canny (5-stage: Gaussian, Sobel, suppression, threshold, hysteresis)</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">6</div>
+                <div class="step-content">
+                    <p class="step-title">AI Analysis</p>
+                    <p class="step-desc">Processed photo sent to Gemini 2.5 Flash for ingredient identification</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        function handleFile(event) {
-            selectedFile = event.target.files[0];
-            if (!selectedFile) return;
+</div>
 
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                document.getElementById('preview').src = e.target.result;
-                document.getElementById('preview-container').style.display = 'block';
-                document.getElementById('scan-btn').disabled = false;
-                document.getElementById('results-card').style.display = 'none';
-                document.getElementById('error-box').style.display = 'none';
-            };
-            reader.readAsDataURL(selectedFile);
-        }
+<script>
+    let selectedFile = null;
 
-        async function scanImage() {
-            if (!selectedFile) return;
-
-            // Show spinner, hide results
-            document.getElementById('spinner').style.display = 'block';
+    function handleFile(event) {
+        selectedFile = event.target.files[0];
+        if (!selectedFile) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+            document.getElementById('preview').src = e.target.result;
+            document.getElementById('preview-container').style.display = 'block';
+            document.getElementById('scan-btn').disabled = false;
             document.getElementById('results-card').style.display = 'none';
+            document.getElementById('edges-card').style.display = 'none';
             document.getElementById('error-box').style.display = 'none';
-            document.getElementById('scan-btn').disabled = true;
+        };
+        reader.readAsDataURL(selectedFile);
+    }
 
-            const formData = new FormData();
-            formData.append('image', selectedFile);
+    function clearPreview() {
+        selectedFile = null;
+        document.getElementById('file-input').value = '';
+        document.getElementById('preview-container').style.display = 'none';
+        document.getElementById('scan-btn').disabled = true;
+        document.getElementById('results-card').style.display = 'none';
+        document.getElementById('edges-card').style.display = 'none';
+    }
 
-            try {
-                const response = await fetch('/detect', {
-                    method: 'POST',
-                    body: formData
-                });
+    async function scanImage() {
+        if (!selectedFile) return;
 
-                const data = await response.json();
+        document.getElementById('loader').style.display = 'block';
+        document.getElementById('results-card').style.display = 'none';
+        document.getElementById('edges-card').style.display = 'none';
+        document.getElementById('error-box').style.display = 'none';
+        document.getElementById('scan-btn').disabled = true;
 
-                document.getElementById('spinner').style.display = 'none';
-                document.getElementById('scan-btn').disabled = false;
+        const formData = new FormData();
+        formData.append('image', selectedFile);
 
-                if (data.success) {
-                    showResults(data.ingredients, data.count);
-                } else {
-                    showError(data.error || 'Detection failed. Please try again.');
-                }
+        try {
+            const response = await fetch('/detect', { method: 'POST', body: formData });
+            const data = await response.json();
 
-            } catch (err) {
-                document.getElementById('spinner').style.display = 'none';
-                document.getElementById('scan-btn').disabled = false;
-                showError('Could not connect to server: ' + err.message);
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('scan-btn').disabled = false;
+
+            if (data.success) {
+                showIngredients(data.ingredients, data.count);
+                if (data.edges) showEdges(data.edges);
+            } else {
+                showError(data.error || 'Analysis failed. Please try again.');
+            }
+        } catch (err) {
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('scan-btn').disabled = false;
+            showError('Could not connect to server: ' + err.message);
+        }
+    }
+
+    function showIngredients(ingredients, count) {
+        const grid = document.getElementById('ingredients-grid');
+        grid.innerHTML = '';
+        ingredients.forEach(item => {
+            const tag = document.createElement('div');
+            tag.className = 'ingredient-tag';
+            tag.textContent = item;
+            grid.appendChild(tag);
+        });
+        document.getElementById('count-badge').textContent = count + ' ingredients found';
+        document.getElementById('results-card').style.display = 'block';
+    }
+
+    function showEdges(edges) {
+        const map = {
+            'sobel_x':        'img-sobel-x',
+            'sobel_y':        'img-sobel-y',
+            'sobel_combined': 'img-sobel-combined',
+            'canny':          'img-canny',
+        };
+        for (const [key, id] of Object.entries(map)) {
+            if (edges[key]) {
+                document.getElementById(id).src = 'data:image/png;base64,' + edges[key];
             }
         }
+        document.getElementById('edges-card').style.display = 'block';
+    }
 
-        function showResults(ingredients, count) {
-            const grid = document.getElementById('ingredient-grid');
-            grid.innerHTML = '';
-
-            ingredients.forEach(item => {
-                const tag = document.createElement('div');
-                tag.className = 'ingredient-tag';
-                tag.textContent = item;
-                grid.appendChild(tag);
-            });
-
-            document.getElementById('count-badge').textContent = count + ' ingredients found';
-            document.getElementById('results-card').style.display = 'block';
-        }
-
-        function showError(message) {
-            const box = document.getElementById('error-box');
-            box.textContent = '⚠️ ' + message;
-            box.style.display = 'block';
-        }
-    </script>
-
+    function showError(message) {
+        const box = document.getElementById('error-box');
+        box.textContent = message;
+        box.style.display = 'block';
+    }
+</script>
 </body>
 </html>
 """
@@ -357,52 +729,56 @@ HTML_PAGE = """
 
 @app.route("/")
 def index():
-    """Serve the web UI — used for CV demo."""
     return render_template_string(HTML_PAGE)
 
 
 @app.route("/health")
 def health():
-    """Quick check that the server is alive."""
     return jsonify({"status": "ok", "message": "Ingridio CV server is running"})
 
 
 @app.route("/detect", methods=["POST"])
 def detect():
     """
-    Main API endpoint.
+    Primary API endpoint.
 
-    Accepts: multipart/form-data with an 'image' field
-    Returns: JSON with detected ingredients
+    Accepts : multipart/form-data with field 'image' (JPG or PNG)
+    Returns : JSON with detected ingredients AND base64-encoded edge photos
 
-    Used by:
-      - The web UI (for CV demo)
-      - Flutter app (for mobile integration)
+    Response shape:
+    {
+        "success":     true,
+        "ingredients": ["eggs", "cheese", ...],
+        "count":       7,
+        "edges": {
+            "sobel_x":        "<base64 PNG>",
+            "sobel_y":        "<base64 PNG>",
+            "sobel_combined": "<base64 PNG>",
+            "canny":          "<base64 PNG>"
+        }
+    }
     """
     if "image" not in request.files:
         return jsonify({
             "success": False,
-            "error": "No image provided. Send a multipart form with field name 'image'."
+            "error": "No photo provided. Send with field 'image'."
         }), 400
 
-    image_file  = request.files["image"]
-    image_bytes = image_file.read()
-
+    image_bytes = request.files["image"].read()
     if len(image_bytes) == 0:
-        return jsonify({"success": False, "error": "Empty image file."}), 400
+        return jsonify({"success": False, "error": "Empty photo file."}), 400
 
-    # Run the full CV pipeline
     result = detect_ingredients(image_bytes)
     return jsonify(result)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    print("\n🥦 Ingridio CV Server")
-    print("=" * 40)
-    print("📡 Running at: http://localhost:5000")
-    print("🌐 Web UI:     http://localhost:5000")
-    print("🔌 API:        POST http://localhost:5000/detect")
-    print("=" * 40)
+    print("\nIngridio CV Server")
+    print("=" * 45)
+    print("Running at : http://localhost:5000")
+    print("Web UI     : http://localhost:5000")
+    print("API        : POST http://localhost:5000/detect")
+    print("=" * 45)
     print("Press CTRL+C to stop\n")
     app.run(debug=True, host="0.0.0.0", port=5000)
